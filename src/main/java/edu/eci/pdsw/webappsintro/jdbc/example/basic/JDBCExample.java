@@ -45,7 +45,9 @@ public class JDBCExample {
 
             System.out.println("Valor total pedido 1:" + valorTotalPedido(con, 1));
 
-            List<String> prodsPedido = nombresProductosPedido(con, 1);
+            List<String> prodsPedido = nombresProductosPedido(con, 2135494);
+            
+            printTables(con);
 
             System.out.println("Productos del pedido 1:");
             System.out.println("-----------------------");
@@ -53,9 +55,10 @@ public class JDBCExample {
                 System.out.println(nomprod);
             }
             System.out.println("-----------------------");
-
-            int suCodigoECI = 20134423;
-            registrarNuevoProducto(con, suCodigoECI, "SU NOMBRE", 99999999);
+            int suCodigoECI = 2135494;
+            int suCodigoECI2 = 2103258;
+//            registrarNuevoProducto(con, suCodigoECI, "Sergio Rodriguez", 99999999); Solo se puede hacer el registro una vez.
+//            registrarNuevoProducto(con, suCodigoECI2, "Jonathan Prieto", 99999999);
             con.commit();
 
             con.close();
@@ -79,7 +82,11 @@ public class JDBCExample {
         //Crear preparedStatement
         //Asignar parámetros
         //usar 'execute'
-
+        PreparedStatement p = con.prepareStatement("INSERT INTO ORD_PRODUCTOS (codigo, nombre, precio) VALUES (?,?,?)");
+        p.setInt(1, codigo);
+        p.setString(2, nombre);
+        p.setInt(3, precio);
+        p.execute();
         con.commit();
 
     }
@@ -91,7 +98,7 @@ public class JDBCExample {
      * @param codigoPedido el código del pedido
      * @return
      */
-    public static List<String> nombresProductosPedido(Connection con, int codigoPedido) {
+    public static List<String> nombresProductosPedido(Connection con, int codigoPedido) throws SQLException {
         List<String> np = new LinkedList<>();
 
         //Crear prepared statement
@@ -99,25 +106,16 @@ public class JDBCExample {
         //usar executeQuery
         //Sacar resultados del ResultSet
         //Llenar la lista y retornarla
-        
-        
-        try {
-            PreparedStatement p = con.prepareStatement("SELECT opr.nombre,opr.codigo FROM ORD_PRODUCTOS opr");
-//            p.setInt(1, codigoPedido);
-            ResultSet r = p.executeQuery();
-            r.first();
-            do{
-                np.add(r.getString("nombre")+" "+r.getString("codigo"));
-            }while(r.next());
-        } catch (Exception ex) {
-            try {
-                con.rollback();
-            } catch (SQLException ex1) {
-                Logger.getLogger(JDBCExample.class.getName()).log(Level.SEVERE, null, ex1);
-            }
-            Logger.getLogger(JDBCExample.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        
+        PreparedStatement p = con.prepareStatement("SELECT opr.nombre,opr.codigo FROM ORD_PRODUCTOS opr WHERE opr.codigo=?");
+        p.setInt(1, codigoPedido);
+        ResultSet r = p.executeQuery();
+        r.first();
+        do {
+            np.add(r.getString("nombre"));
+        } while (r.next());
+
+        con.rollback();
+
         return np;
     }
 
@@ -128,13 +126,29 @@ public class JDBCExample {
      * @param codigoPedido código del pedido cuyo total se calculará
      * @return el costo total del pedido (suma de: cantidades*precios)
      */
-    public static int valorTotalPedido(Connection con, int codigoPedido) {
+    public static int valorTotalPedido(Connection con, int codigoPedido) throws SQLException {
 
         //Crear prepared statement
         //asignar parámetros
         //usar executeQuery
         //Sacar resultado del ResultSet
-        return 0;
+        PreparedStatement p = con.prepareStatement("SELECT SUM(pr.precio*pe.cantidad) AS precioTotal "
+                + "FROM ORD_PRODUCTOS AS pr JOIN ORD_DETALLES_PEDIDO AS pe ON (pe.producto_fk=pr.codigo) WHERE pe.pedido_fk=?");
+        p.setInt(1, codigoPedido);
+        
+        ResultSet r = p.executeQuery();
+        if(!r.first())return 123;
+        return r.getInt("precioTotal");
+    }
+    
+    public static void printTables(Connection con) throws SQLException{
+        PreparedStatement p2 = con.prepareStatement("SELECT pr.*,pe.* FROM ORD_PRODUCTOS AS pr JOIN ORD_DETALLES_PEDIDO AS pe ON (pe.producto_fk=pr.codigo)");
+        ResultSet r1 = p2.executeQuery();
+        r1.first();
+        do {
+            System.out.println(r1.getString("nombre")+" "+r1.getInt("precio")+" "+r1.getInt("cantidad")+" "+r1.getInt("pedido_fk"));
+        } while (r1.next());
+        
     }
 
 }
